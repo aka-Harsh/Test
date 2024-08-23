@@ -33,6 +33,14 @@ def plot_predictions(data, predictions, days, model_name):
     
     return plt
 
+def get_investment_recommendation(rise_prob):
+    if rise_prob >= 60:
+        return "Invest"
+    elif rise_prob <= 40:
+        return "Don't Invest"
+    else:
+        return "Hold"
+
 def main():
     st.title("Stock Market Price Predictor")
 
@@ -55,6 +63,8 @@ def main():
                 "Random Forest": RandomForestModel()
             }
 
+            results = []
+
             for name, model in models.items():
                 model.fit(X_train, y_train)
                 
@@ -74,18 +84,24 @@ def main():
                 st.pyplot(fig)
                 plt.close()
 
-                # Calculate and display probabilities
+                # Calculate probabilities and price change
                 rise_prob, fall_prob = calculate_probabilities(predictions)
-                st.write(f"{name} Model:")
-                st.write(f"  Probability of rise: {rise_prob:.2f}%")
-                st.write(f"  Probability of fall: {fall_prob:.2f}%")
-                
-                # Display price change
                 price_change = predictions[-1] - data['Close'].iloc[-1]
                 price_change_percent = (price_change / data['Close'].iloc[-1]) * 100
-                st.write(f"  Predicted price change: ${price_change:.2f} ({price_change_percent:.2f}%)")
-                
-                st.write("---")
+
+                # Store results
+                results.append({
+                    "Model": name,
+                    "Rise Probability": f"{rise_prob:.2f}%",
+                    "Fall Probability": f"{fall_prob:.2f}%",
+                    "Price Change": f"${price_change:.2f} ({price_change_percent:.2f}%)",
+                    "Recommendation": get_investment_recommendation(rise_prob)
+                })
+
+            # Create and display the matrix table
+            results_df = pd.DataFrame(results)
+            st.write("Model Comparison Matrix:")
+            st.table(results_df.set_index('Model'))
 
 if __name__ == "__main__":
     main()
