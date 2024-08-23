@@ -6,19 +6,31 @@ from models.lstm_model import LSTMModel
 from models.xgboost_model import XGBoostModel
 from models.random_forest_model import RandomForestModel
 from utils.data_preprocessing import preprocess_data, create_sequences
-from utils.evaluation import evaluate_model
+from utils.evaluation import calculate_probabilities
 
-def plot_predictions(data, predictions, days):
+def plot_predictions(data, predictions, days, model_name):
     plt.figure(figsize=(12, 6))
-    plt.plot(data.index[-len(predictions):], data['Close'][-len(predictions):], label='Actual')
-    for model, pred in predictions.items():
-        plt.plot(data.index[-len(predictions):], pred, label=f'{model} Prediction')
-    plt.plot(pd.date_range(start=data.index[-1], periods=days+1, freq='D')[1:], 
-             predictions['LSTM'][-days:], '--', label='Future Prediction')
-    plt.title('Stock Price Prediction')
+    plt.plot(data.index[-60:], data['Close'][-60:], label='Historical', color='blue')
+    
+    future_dates = pd.date_range(start=data.index[-1], periods=days+1, freq='D')[1:]
+    plt.plot(future_dates, predictions, label=f'{model_name} Prediction', color='red')
+    
+    plt.title(f'{model_name} Stock Price Prediction')
     plt.xlabel('Date')
     plt.ylabel('Price')
     plt.legend()
+    
+    # Add arrow annotations
+    last_historical = data['Close'].iloc[-1]
+    first_prediction = predictions[0]
+    mid_prediction = predictions[len(predictions)//2]
+    last_prediction = predictions[-1]
+    
+    plt.annotate('', xy=(future_dates[0], first_prediction), xytext=(data.index[-1], last_historical),
+                 arrowprops=dict(facecolor='green' if first_prediction > last_historical else 'red', shrink=0.05))
+    plt.annotate('', xy=(future_dates[-1], last_prediction), xytext=(future_dates[len(future_dates)//2], mid_prediction),
+                 arrowprops=dict(facecolor='green' if last_prediction > mid_prediction else 'red', shrink=0.05))
+    
     return plt
 
 def main():
@@ -43,12 +55,8 @@ def main():
                 "Random Forest": RandomForestModel()
             }
 
-            predictions = {}
             for name, model in models.items():
                 model.fit(X_train, y_train)
-                y_pred = model.predict(X_test)
-                accuracy = evaluate_model(y_test, y_pred)
-                st.write(f"{name} Model Prediction Accuracy: {accuracy:.2f}%")
                 
                 # Predict future values
                 last_sequence = X_test[-1].reshape(1, -1, 5)
@@ -59,11 +67,25 @@ def main():
                     last_sequence = np.roll(last_sequence, -1, axis=1)
                     last_sequence[0, -1, 0] = next_pred[0]
                 
-                predictions[name] = scaler.inverse_transform(np.concatenate([y_pred, future_pred]))[:, 0]
+                predictions = scaler.inverse_transform(np.array(future_pred)).flatten()
 
-            # Plot results
-            fig = plot_predictions(data, predictions, days_to_predict)
-            st.pyplot(fig)
+                # Plot results
+                fig = plot_predictions(data, predictions, days_to_predict, name)
+                st.pyplot(fig)
+                plt.close()
+
+                # Calculate and display probabilities
+                rise_prob, fall_prob = calculate_probabilities(predictions)
+                st.write(f"{name} Model:")
+                st.write(f"  Probability of rise: {rise_prob:.2f}%")
+                st.write(f"  Probability of fall: {fall_prob:.2f}%")
+                
+                # Display price change
+                price_change = predictions[-1] - data['Close'].iloc[-1]
+                price_change_percent = (price_change / data['Close'].iloc[-1]) * 100
+                st.write(f"  Predicted price change: ${price_change:.2f} ({price_change_percent:.2f}%)")
+                
+                st.write("---")
 
 if __name__ == "__main__":
     main()
