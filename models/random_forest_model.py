@@ -1,11 +1,14 @@
 from sklearn.ensemble import RandomForestRegressor
+import numpy as np
 
 class RandomForestModel:
     def __init__(self):
         self.model = RandomForestRegressor(n_estimators=100)
 
     def fit(self, X_train, y_train):
-        self.model.fit(X_train, y_train)
+        X_train_2d = X_train.reshape(X_train.shape[0], -1)
+        self.model.fit(X_train_2d, y_train)
 
     def predict(self, X_test):
-        return self.model.predict(X_test)
+        X_test_2d = X_test.reshape(X_test.shape[0], -1)
+        return self.model.predict(X_test_2d).reshape(-1, 1)
