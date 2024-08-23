@@ -1,8 +1,12 @@
 import numpy as np
-from sklearn.metrics import mean_squared_error
 
-def evaluate_model(y_true, y_pred):
-    mse = mean_squared_error(y_true, y_pred)
-    rmse = np.sqrt(mse)
-    accuracy = 100 - (rmse / np.mean(y_true) * 100)
-    return accuracy
+def calculate_probabilities(predictions):
+    diff = np.diff(predictions)
+    rise_count = np.sum(diff > 0)
+    fall_count = np.sum(diff < 0)
+    total_count = len(diff)
+    
+    rise_prob = (rise_count / total_count) * 100
+    fall_prob = (fall_count / total_count) * 100
+    
+    return rise_prob, fall_prob
